@@ -1,7 +1,8 @@
 from typing import List
 
 from sqlalchemy import delete as alch_delete
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.repositories import SearchRepository, SortKey
@@ -45,7 +46,7 @@ class SQLAlchemySearchRepository(SearchRepository):
         await self._session.execute(statement)
 
     async def delete(self, ad_id: int) -> None:
-        statement = alch_delete(SearchIndexModel).where(SearchIndexModel.id == ad_id)
+        statement = alch_delete(SearchIndexModel).where(SearchIndexModel.ad_id == ad_id)
         await self._session.execute(statement)
 
     async def search(

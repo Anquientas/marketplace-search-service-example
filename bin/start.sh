@@ -19,7 +19,7 @@ on_signal() {
 }
 trap on_signal TERM INT
 
-uv run uvicorn bin.api:app --host 0.0.0.0 --port 8003 &
+uv run uvicorn bin.api:app --host 0.0.0.0 --port 8000 &
 api_pid=$!
 
 uv run python -m bin.consumer &

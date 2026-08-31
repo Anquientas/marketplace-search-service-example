@@ -26,11 +26,13 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
-        if self.postgres_connection_string:
-            return self.postgres_connection_string
-        return (
+        dsn = self.postgres_connection_string or (
             "postgresql+asyncpg://"
             f"{self.postgres_username}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}"
             f"/{self.postgres_database_name}"
         )
+        for prefix in ("postgres://", "postgresql://"):
+            if dsn.startswith(prefix):
+                return "postgresql+asyncpg://" + dsn[len(prefix) :]
+        return dsn

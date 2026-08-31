@@ -1,6 +1,7 @@
 from typing import List
 
-from sqlalchemy import func, select
+from sqlalchemy import delete as alch_delete
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.application.ports.repositories import SearchRepository, SortKey
@@ -21,10 +22,31 @@ class SQLAlchemySearchRepository(SearchRepository):
         category: str,
         city: str,
     ) -> None:
-        raise NotImplementedError
+        statement = insert(SearchIndexModel).values(
+            ad_id=ad_id,
+            title=title,
+            description=description,
+            price=price,
+            category=category,
+            city=city,
+            indexed_at=func.now(),
+        )
+        statement = statement.on_conflict_do_update(
+            index_elements=["ad_id"],
+            set_={
+                "title": statement.excluded.title,
+                "description": statement.excluded.description,
+                "price": statement.excluded.price,
+                "category": statement.excluded.category,
+                "city": statement.excluded.city,
+                "indexed_at": func.now(),
+            },
+        )
+        await self._session.execute(statement)
 
     async def delete(self, ad_id: int) -> None:
-        raise NotImplementedError
+        statement = alch_delete(SearchIndexModel).where(SearchIndexModel.id == ad_id)
+        await self._session.execute(statement)
 
     async def search(
         self,
@@ -44,8 +66,12 @@ class SQLAlchemySearchRepository(SearchRepository):
         if query is not None and query.strip():
             tsquery = func.plainto_tsquery("russian", query)
             rank = func.ts_rank(SearchIndexModel.ts_vector, tsquery)
-            items_query = items_query.where(SearchIndexModel.ts_vector.op("@@")(tsquery)) # noqa: E501
-            count_query = count_query.where(SearchIndexModel.ts_vector.op("@@")(tsquery)) # noqa: E501
+            items_query = items_query.where(
+                SearchIndexModel.ts_vector.op("@@")(tsquery)
+            )  # noqa: E501
+            count_query = count_query.where(
+                SearchIndexModel.ts_vector.op("@@")(tsquery)
+            )  # noqa: E501
 
         if category is not None:
             items_query = items_query.where(SearchIndexModel.category == category)

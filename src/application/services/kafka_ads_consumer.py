@@ -4,6 +4,7 @@ import typing
 from aiokafka import AIOKafkaConsumer
 
 from src.application.ports.usecases import IndexAdPort, RemoveAdPort
+from src.tracing import bound_trace_id
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +22,15 @@ class KafkaAdsConsumer:
 
     async def run(self) -> None:
         async for msg in self._consumer:
-            try:
-                await self._handle(msg.value)
-            except Exception:
-                logger.exception("failed to handle message %s", msg)
-                continue
-            await self._consumer.commit()
+            value = msg.value
+            trace_id = value.get("trace_id") if isinstance(value, dict) else None
+            with bound_trace_id(trace_id):
+                try:
+                    await self._handle(value)
+                except Exception:
+                    logger.exception("failed to handle message %s", msg)
+                    continue
+                await self._consumer.commit()
 
     async def _handle(self, value: dict[str, typing.Any]) -> None:
         event = value.get("event")
